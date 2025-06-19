@@ -1,0 +1,118 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Simple Watermark Blur Remover Demo</title>
+<style>
+  #canvas { border: 1px solid black; max-width: 90vw; max-height: 70vh; }
+  #instructions { margin-bottom: 10px; }
+  #controls { margin-top: 10px; }
+</style>
+</head>
+<body>
+
+<h2>Simple Watermark Area Blur</h2>
+<p id="instructions">Upload an image, then drag mouse over watermark area to blur it.</p>
+
+<input type="file" id="upload" accept="image/*" />
+<br />
+<canvas id="canvas"></canvas>
+
+<div id="controls">
+  <button id="resetBtn">Reset</button>
+  <button id="downloadBtn">Download Edited Image</button>
+</div>
+
+<script>
+const upload = document.getElementById('upload');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+let img = new Image();
+let startX, startY, isDragging = false;
+
+upload.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  img.src = url;
+});
+
+img.onload = () => {
+  // Resize canvas to image size
+  canvas.width = img.width;
+  canvas.height = img.height;
+  ctx.drawImage(img, 0, 0);
+};
+
+canvas.addEventListener('mousedown', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  startX = e.clientX - rect.left;
+  startY = e.clientY - rect.top;
+  isDragging = true;
+});
+
+canvas.addEventListener('mouseup', (e) => {
+  if (!isDragging) return;
+  const rect = canvas.getBoundingClientRect();
+  const endX = e.clientX - rect.left;
+  const endY = e.clientY - rect.top;
+  isDragging = false;
+
+  const x = Math.min(startX, endX);
+  const y = Math.min(startY, endY);
+  const width = Math.abs(endX - startX);
+  const height = Math.abs(endY - startY);
+
+  // Blur the selected area
+  blurArea(x, y, width, height);
+});
+
+function blurArea(x, y, w, h) {
+  const imageData = ctx.getImageData(x, y, w, h);
+  const data = imageData.data;
+  const blurRadius = 5;
+
+  // Simple box blur algorithm (very naive)
+  for (let i = 0; i < data.length; i += 4) {
+    let r = 0, g = 0, b = 0, count = 0;
+
+    // Average nearby pixels in radius
+    for (let dy = -blurRadius; dy <= blurRadius; dy++) {
+      for (let dx = -blurRadius; dx <= blurRadius; dx++) {
+        const nx = (i/4) % w + dx;
+        const ny = Math.floor((i/4) / w) + dy;
+        if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
+          const ni = (ny * w + nx) * 4;
+          r += data[ni];
+          g += data[ni + 1];
+          b += data[ni + 2];
+          count++;
+        }
+      }
+    }
+    data[i] = r / count;
+    data[i + 1] = g / count;
+    data[i + 2] = b / count;
+  }
+
+  ctx.putImageData(imageData, x, y);
+}
+
+document.getElementById('resetBtn').onclick = () => {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(img, 0, 0);
+};
+
+document.getElementById('downloadBtn').onclick = () => {
+  const link = document.createElement('a');
+  link.download = 'edited-image.png';
+  link.href = canvas.toDataURL();
+  link.click();
+};
+</script>
+
+</body>
+</html>
